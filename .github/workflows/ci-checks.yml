@@ -1,0 +1,74 @@
+name: Runs All Unit tests, Prettier and ESLint
+
+on:
+  pull_request:
+    types: [synchronize] # don't run on PR open
+    branches:
+      - 'dev'
+      - 'prod'
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  ci-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    strategy:
+      matrix:
+        node-version: [20.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # - name: Setup Amplify CLI
+      #   uses: ./.github/actions/amplify-cli
+      #   with:
+      #     AWS_GHA_ROLE_ARN: ${{ vars.AWS_GHA_ROLE_ARN }}
+      #     AWS_REGION: ${{ vars.AWS_REGION }}
+
+      # - name: Get Amplify environment name
+      #   id: get_feature_env_name
+      #   if: github.base_ref == 'dev'
+      #   run: echo "ENV_NAME=$(echo $BRANCH_NAME | md5sum | tr -cd '[:alpha:]' | cut -c 1-10)" >> $GITHUB_OUTPUT
+      #   env:
+      #     BRANCH_NAME: ${{ github.head_ref }}
+
+      #   # Working directory needs to be app root to run amplify commands
+      # - name: 'Pull Amplify environment to run the tests against'
+      #   working-directory: .
+      #   run: amplify pull --yes --debug --appId ${{ vars.AMPLIFY_APP_ID }} --envName ${{ github.base_ref == 'dev' && steps.get_feature_env_name.outputs.ENV_NAME || 'dev' }}
+
+      - name: 'Use Node.js ${{ matrix.node-version }}'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Pre commit checks
+        uses: pre-commit/action@v3.0.1
+
+      - name: 'Install Dependencies'
+        run: npm ci
+
+      - name: 'Check formatting with Prettier'
+        run: npm run prettier:check:ci
+
+      - name: 'Run ESLint'
+        run: npm run lint
+
+      - name: 'Run Typescript checks'
+        run: npm run ts:check
+
+      - name: 'Run Unit Tests'
+        run: npm run test:ci

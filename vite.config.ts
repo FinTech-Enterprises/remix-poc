@@ -1,9 +1,10 @@
 import { vitePlugin as remix } from "@remix-run/dev";
-import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [
+    !process.env.VITEST &&
     remix({
       ssr: false,
       future: {
@@ -14,4 +15,8 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  test: {
+    globals: true,
+    environment: "jsdom",
+  },
 });
